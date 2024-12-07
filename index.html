@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web MQTT Explorer</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap JavaScript Bundle (includes Popper.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- MQTT.js Library -->
+    <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"></script>
+    <style>
+        body {
+            margin: 20px;
+            background-color: #f4f6f9;
+        }
+        #console {
+            height: 337px;
+            overflow-y: auto;
+            background: #ffffff;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-family: "Courier New", Courier, monospace;
+        }
+        .console-message {
+            margin-bottom: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .log-timestamp {
+            color: #888888; /* Grey color for the timestamp */
+            font-size: 12px;
+        }
+
+        .log-text {
+            font-weight: bold; /* Bold text for the message */
+            color: #333333; /* Darker text color */
+        }
+
+        /* Different styles based on message type */
+        .console-message.info {
+            color: #007bff; /* Blue for info messages */
+        }
+
+        .console-message.success {
+            color: #28a745; /* Green for success messages */
+        }
+
+        .console-message.error {
+            color: #dc3545; /* Red for error messages */
+        }
+
+        .console-message.warning {
+            color: #ffc107; /* Yellow for warning messages */
+        }
+
+        .console-message.error {
+            color: red;
+        }
+        .console-message.success {
+            color: green;
+        }
+        .console-message.info {
+            color: blue;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-connected {
+            background-color: green;
+        }
+        .status-disconnected {
+            background-color: red;
+        }
+        .console-message::before {
+        margin-right: 5px;
+    }
+        .console-message.success::before {
+            content: '✔';
+            color: green;
+        }
+        .console-message.error::before {
+            content: '✘';
+            color: red;
+        }
+        .console-message.info::before {
+            content: 'ℹ';
+            color: blue;
+        }
+        .d-none {
+            display: none !important;
+        }
+        .rounded-background {
+            background-color: #f8f9fa;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 455px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4 text-center">Web MQTT Explorer</h1>
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-12 col-md-6">
+                <!-- Connection Settings -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="card-title col-md-12 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Connect to MQTT Broker</h5>
+                            <div>
+                                Connection Status: 
+                                <span id="connectionStatus" class="status-indicator status-disconnected"></span>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="protocol" class="form-label">Protocol</label>
+                                <select id="protocol" class="form-select">
+                                    <option value="ws">ws:// (Web Socket)</option>
+                                    <option value="wss" selected>wss:// (Web Socket Secure)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="broker" class="form-label">Broker URL</label>
+                                <input type="text" id="broker" class="form-control" >
+                            </div>
+                            <div class="col-md-2">
+                                <label for="port" class="form-label">Port</label>
+                                <input type="number" id="port" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" id="username" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" id="password" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button id="connectButton" class="btn btn-primary w-100" onclick="connectMQTT()" data-bs-toggle="tooltip" title="Connect to the MQTT broker">Connect</button>
+                            </div>
+                            <div class="col-md-6">
+                                <button id="disconnectButton" class="btn btn-danger w-100" onclick="disconnectMQTT()" disabled>Disconnect</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Publish Message -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Publish a Message</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="publishTopic" class="form-label">Topic</label>
+                                <input type="text" id="publishTopic" class="form-control" value="test/topic" disabled>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="publishQos" class="form-label">QoS</label>
+                                <select id="publishQos" class="form-select" disabled>
+                                    <option value="0" selected>0 (At most once)</option>
+                                    <option value="1">1 (At least once)</option>
+                                    <option value="2">2 (Exactly once)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="publishMessage" class="form-label">Message</label>
+                            <textarea id="publishMessage" class="form-control" rows="5" disabled>Hello MQTT</textarea>
+                        </div>
+                        <button class="btn btn-success w-100" id="publishbutton" onclick="publishMessage()" disabled>Publish</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Right Column -->
+            <div class="col-12 col-md-6">
+                <!-- Subscribe to Topic -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Subscribe to a Topic</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="subscribeTopic" class="form-label">Topic</label>
+                                <input type="text" id="subscribeTopic" class="form-control" value="test/topic" disabled>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="subscribeQos" class="form-label">QoS</label>
+                                <select id="subscribeQos" class="form-select" disabled>
+                                    <option value="0" selected>0 (At most once)</option>
+                                    <option value="1">1 (At least once)</option>
+                                    <option value="2">2 (Exactly once)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-info w-100" id="subscribeButton" onclick="subscribeTopic()" disabled>Subscribe</button>
+                    </div>
+                </div>
+                <!-- Console -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Messages</h5>
+                        <div id="console" class="mt-3">
+                            <div id="no_con_message" class="d-flex justify-content-center align-items-center flex-column rounded-background">
+                                <p><strong>Not connected</strong></p>
+                                <p>Please connect the Web Client to see incoming messages.</p>
+                            </div>
+                            <div id="no_subs_message" class="d-none d-flex justify-content-center align-items-center flex-column rounded-background">
+                                <p><strong>No messages</strong></p>
+                                <p>You don't have any messages yet.</p>
+                                <p>Subscribe to all messages via the <code>#</code> wildcard.</p>
+                                <button class="btn btn-info w-100" onclick="subscribeall()">Subscribe</button>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary mt-3 w-100" id="clearButton" onclick="clearConsole()" disabled>Clear Messages</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let client;
+        let isConnected = false;
+        let isSubscribed = false;
+
+        document.getElementById('publishMessage').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') publishMessage();
+        });
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            new bootstrap.Tooltip(el);
+        });
+
+
+        function saveSettings() {
+            const settings = {
+                protocol: document.getElementById('protocol').value,
+                broker: document.getElementById('broker').value,
+                port: document.getElementById('port').value,
+                username: document.getElementById('username').value,
+            };
+            localStorage.setItem('mqttSettings', JSON.stringify(settings));
+        }
+
+        
+        function setConnectionState() {
+            const protocol = document.getElementById("protocol");
+            const broker = document.getElementById("broker");
+            const port = document.getElementById("port");
+            const username = document.getElementById("username");
+            const password = document.getElementById("password");
+
+            const connectButton = document.getElementById("connectButton");
+            const disconnectButton = document.getElementById("disconnectButton");
+            const publishButton = document.getElementById("publishbutton");
+            const subscribeButton = document.getElementById("subscribeButton");
+            const clearButton = document.getElementById("clearButton");
+
+            const publishTopic = document.getElementById("publishTopic");
+            const publishQos = document.getElementById("publishQos");
+            const publishMessage = document.getElementById("publishMessage");
+            const subscribeTopic = document.getElementById("subscribeTopic");
+            const subscribeQos = document.getElementById("subscribeQos");
+
+            const noConMessage = document.getElementById("no_con_message");
+            const noSubsMessage = document.getElementById("no_subs_message");
+
+            // Helper function to enable/disable elements
+            const toggleElementState = (element, enabled) => {
+                if (enabled) {
+                    element.classList.remove("disabled");
+                    element.disabled = false;
+                } else {
+                    element.classList.add("disabled");
+                    element.disabled = true;
+                }
+            };
+
+            toggleElementState(protocol, !isConnected);
+            toggleElementState(broker, !isConnected);
+            toggleElementState(port, !isConnected);
+            toggleElementState(username, !isConnected);
+            toggleElementState(password, !isConnected);
+
+            toggleElementState(connectButton, !isConnected);
+            toggleElementState(disconnectButton, isConnected);
+            toggleElementState(publishButton, isConnected);
+            toggleElementState(subscribeButton, isConnected);
+            toggleElementState(clearButton, isConnected);
+            toggleElementState(publishTopic, isConnected);
+            toggleElementState(publishQos, isConnected);
+            toggleElementState(publishMessage, isConnected);
+            toggleElementState(subscribeTopic, isConnected);
+            toggleElementState(subscribeQos, isConnected);
+
+            // Handle message visibility based on states
+            if (isConnected && !isSubscribed) {
+                noConMessage.classList.add("d-none");
+                noSubsMessage.classList.remove("d-none");
+            } else if (!isConnected) {
+                noConMessage.classList.remove("d-none");
+                noSubsMessage.classList.add("d-none");
+            } else if (isConnected && isSubscribed) {
+                noConMessage.classList.add("d-none");
+                noSubsMessage.classList.add("d-none");
+            }
+        }
+
+        function logMessage(message, type = 'info') {
+        const consoleDiv = document.getElementById('console');
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Create a container div for the log entry
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `console-message ${type}`;
+
+        // Add timestamp
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'log-timestamp';
+        timestampSpan.textContent = `[${timestamp}] `;
+        messageDiv.appendChild(timestampSpan);
+
+        // Parse the message for bolding specific parts
+        const regex = /Topic=([\w/]+), Message=([\[\]A-Za-z0-9,. ]+)/; // Regex to extract Topic and Message parts
+        const match = message.match(regex);
+
+        if (match) {
+            const [_, topic, msg] = match;
+
+            // Normal text before topic
+            const normalBeforeTopic = document.createElement('span');
+            normalBeforeTopic.textContent = message.split('Topic=')[0] + 'Topic=';
+            messageDiv.appendChild(normalBeforeTopic);
+
+            // Bold topic
+            const boldTopic = document.createElement('strong');
+            boldTopic.textContent = topic;
+            messageDiv.appendChild(boldTopic);
+
+            // Normal text before message
+            const normalBeforeMessage = document.createElement('span');
+            normalBeforeMessage.textContent = ', Message=';
+            messageDiv.appendChild(normalBeforeMessage);
+
+            // Bold message
+            const boldMessage = document.createElement('strong');
+            boldMessage.textContent = msg;
+            messageDiv.appendChild(boldMessage);
+        } else {
+            // If the message doesn't match the expected format, display it as is
+            const normalText = document.createElement('span');
+            normalText.textContent = message;
+            messageDiv.appendChild(normalText);
+        }
+
+        // Append the container to the console
+        consoleDiv.appendChild(messageDiv);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll to the latest log
+    }
+
+
+
+        function clearConsole() {
+            const consoleElement = document.getElementById('console');
+
+            // Iterate through all child nodes and remove those not matching the IDs to retain
+            Array.from(consoleElement.children).forEach((child) => {
+                if (!child.id || (child.id !== 'no_con_message' && child.id !== 'no_subs_message')) {
+                    consoleElement.removeChild(child);
+                }
+            });
+        }
+
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connectionStatus');
+            indicator.className = `status-indicator ${connected ? 'status-connected' : 'status-disconnected'}`;
+            document.getElementById('connectButton').disabled = connected;
+            document.getElementById('disconnectButton').disabled = !connected;
+            saveSettings();
+        }
+
+        window.onload = () => {
+            const settings = JSON.parse(localStorage.getItem('mqttSettings'));
+            if (settings) {
+                document.getElementById('protocol').value = settings.protocol;
+                document.getElementById('broker').value = settings.broker;
+                document.getElementById('port').value = settings.port;
+                document.getElementById('username').value = settings.username;
+            }
+        };
+        function connectMQTT() {
+            const protocol = document.getElementById('protocol').value;
+            const hostname = document.getElementById('broker').value;
+            const port = parseInt(document.getElementById('port').value, 10);
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const mqttOptions = {
+                hostname,
+                port,
+                protocol,
+                path: "/mqtt",
+                username,
+                password,
+            };
+
+            client = mqtt.connect(mqttOptions);
+
+            client.on('connect', () => {
+                // logMessage('Connected to the broker', 'success');
+                updateConnectionStatus(true);
+                isConnected = true;
+                setConnectionState();
+                
+            });
+
+            client.on('error', (err) => logMessage(`Connection error: ${err.message}`, 'error'));
+
+            client.on('message', (topic, message) =>
+                logMessage(`Received message: Topic=${topic}, Message=${message.toString()}`, 'info')
+            );
+
+            client.on('close', () => {
+                // logMessage('Disconnected from the broker', 'error');
+                updateConnectionStatus(false);
+                isConnected = false;                
+                isSubscribed = false;
+                setConnectionState();
+            });
+        }
+        function disconnectMQTT() {
+            if (client) {
+                client.end();
+                isConnected = false;                
+                isSubscribed = false;
+                setConnectionState();
+                clearConsole();
+                // logMessage('Disconnected from the broker', 'info');
+            }
+        }
+
+        function publishMessage() {
+            const topic = document.getElementById('publishTopic').value;
+            const message = document.getElementById('publishMessage').value;
+            const qos = parseInt(document.getElementById('publishQos').value, 10);
+
+            if (client && client.connected) {
+                client.publish(topic, message, { qos }, (err) => {
+                    if (err) {
+                        logMessage(`Publish error: ${err.message}`, 'error');
+                    } else {
+                        logMessage(`Published: Topic=${topic}, Message=${message}`, 'success');
+                    }
+                });
+            } else {
+                logMessage('Client is not connected. Unable to publish.', 'error');
+            }
+        }
+
+        function subscribeTopic() {
+            const topic = document.getElementById('subscribeTopic').value;
+            const qos = parseInt(document.getElementById('subscribeQos').value, 10);
+
+            if (client && client.connected) {
+                client.subscribe(topic, { qos }, (err) => {
+                    if (err) {
+                        logMessage(`Subscribe error: ${err.message}`, 'error');
+                    } else {
+                        isConnected = true;                
+                        isSubscribed = true;
+                        setConnectionState();
+                        logMessage(`Subscribed to topic: ${topic}`, 'success');
+                    }
+                });
+            } else {
+                logMessage('Client is not connected. Unable to subscribe.', 'error');
+            }
+        }
+        function subscribeall() {
+
+            if (client && client.connected) {
+                client.subscribe('#', { qos: 0 }, (err) => {
+                    if (err) {
+                        logMessage(`Subscribe error: ${err.message}`, 'error');
+                    } else {
+                        isConnected = true;                
+                        isSubscribed = true;
+                        setConnectionState();
+                        logMessage(`Subscribed to All`, 'success');
+                    }
+                });
+            } else {
+                logMessage('Client is not connected. Unable to subscribe.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
