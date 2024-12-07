@@ -1,7 +1,7 @@
 # Web MQTT Explorer
 
 A lightweight and user-friendly web-based MQTT client to connect, publish, and subscribe to MQTT topics using MQTT.js and Bootstrap.
-https://github.com/Subhendu1987/Web-MQTT-Explorer/blob/1abbe892c4766529df35029f57ba1277b5a669e5/Screenshot_7-12-2024_224554_subhendu1987.github.io.jpeg
+ ![Image Alt](https://github.com/Subhendu1987/Web-MQTT-Explorer/blob/1abbe892c4766529df35029f57ba1277b5a669e5/Screenshot_7-12-2024_224554_subhendu1987.github.io.jpeg)
 ## Features
 
 - **Connect to an MQTT Broker**: Supports WebSocket (`ws`) and Secure WebSocket (`wss`) protocols.
